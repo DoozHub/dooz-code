@@ -1,0 +1,39 @@
+{
+    "id": "WP-EXAMPLE-001",
+    "title": "Add User Greeting Feature",
+    "description": "Implement a simple greeting function that welcomes users by name",
+    "owner": "dooz-code-example",
+    "scope": {
+        "items": [
+            {
+                "description": "Create greeting function that returns personalized message",
+                "category": "Feature"
+            },
+            {
+                "description": "Add unit tests for greeting function",
+                "category": "Test"
+            }
+        ],
+        "boundaries": []
+    },
+    "criteria": [
+        {
+            "id": "AC1",
+            "description": "Function accepts name parameter and returns greeting string",
+            "required": true,
+            "criterion_type": "Functional"
+        },
+        {
+            "id": "AC2",
+            "description": "Must have unit tests with at least 2 test cases",
+            "required": true,
+            "criterion_type": "Testing"
+        }
+    ],
+    "approval": {
+        "approved": true,
+        "approved_by": "example-reviewer",
+        "approved_at": "2026-01-19T10:00:00Z"
+    },
+    "created_at": "2026-01-19T09:00:00Z"
+}

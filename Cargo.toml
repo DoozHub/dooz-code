@@ -1,0 +1,62 @@
+[package]
+name = "dooz-code"
+version = "0.1.0"
+edition = "2021"
+description = "An autonomous coder that belongs inside a company"
+license = "Apache-2.0"
+repository = "https://github.com/DoozHub/dooz-code"
+readme = "README.md"
+keywords = ["autonomous", "execution", "coder", "deterministic", "governance"]
+categories = ["development-tools", "command-line-utilities"]
+
+# Constitutional: Execution only, no decision-making
+[lib]
+name = "dooz_code"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dooz-code"
+path = "src/main.rs"
+required-features = ["binary"]
+
+[features]
+default = []
+binary = ["clap"]
+
+[dependencies]
+# Serialization (deterministic, compact)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Cryptographic hashing (checksums, determinism verification)
+sha2 = "0.10"
+
+# File system traversal
+walkdir = "2.4"
+
+# Regex for pattern matching
+regex = "1.10"
+
+# Optional: CLI for binary (not used in library mode)
+clap = { version = "4.4", features = ["derive"], optional = true }
+
+[dev-dependencies]
+# Testing
+tempfile = "3.10"
+
+[profile.release]
+# Optimize for determinism and reliability over speed
+opt-level = 2
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# Constitutional constraints encoded in Cargo.toml:
+# - No network dependencies (no tokio, no reqwest, no hyper)
+# - No async runtime (no tokio, no async-std)
+# - No randomness crates (no rand)
+# - No cloud SDKs
+# - No LLM/AI client libraries
+# - No scope expansion capability
+# - No autonomous feature creation
