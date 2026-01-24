@@ -351,6 +351,9 @@ pub enum ContextError {
     ReadError(String),
     ParseError(String),
     ValidationError(String),
+    ConfigurationError { message: String },
+    NetworkError { message: String },
+    IoError { path: PathBuf, message: String },
 }
 
 impl std::fmt::Display for ContextError {
@@ -361,6 +364,9 @@ impl std::fmt::Display for ContextError {
             Self::ReadError(e) => write!(f, "Read error: {}", e),
             Self::ParseError(e) => write!(f, "Parse error: {}", e),
             Self::ValidationError(e) => write!(f, "Validation error: {}", e),
+            Self::ConfigurationError { message } => write!(f, "Configuration error: {}", message),
+            Self::NetworkError { message } => write!(f, "Network error: {}", message),
+            Self::IoError { path, message } => write!(f, "IO error on {}: {}", path.display(), message),
         }
     }
 }

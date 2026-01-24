@@ -1,6 +1,6 @@
 [package]
 name = "dooz-code"
-version = "0.1.0"
+version = "0.3.0-ultrawork"
 edition = "2021"
 description = "An autonomous coder that belongs inside a company"
 license = "Apache-2.0"
@@ -22,6 +22,7 @@ required-features = ["binary"]
 [features]
 default = []
 binary = ["clap"]
+llm-integration = []
 
 [dependencies]
 # Serialization (deterministic, compact)
@@ -38,6 +39,38 @@ walkdir = "2.4"
 # Regex for pattern matching
 regex = "1.10"
 
+# HTTP clients for LLM providers
+ureq = "2.9"
+reqwest = { version = "0.11", features = ["json"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Async trait support
+async-trait = "0.1"
+
+# CPU count detection
+num_cpus = "1.16"
+
+# Home directory detection
+home = "0.5"
+
+# Timestamp handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Random number generation
+rand = "0.8"
+
+# UUID generation
+uuid = { version = "1.0", features = ["v4"] }
+
+# Error handling
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
 # Optional: CLI for binary (not used in library mode)
 clap = { version = "4.4", features = ["derive"], optional = true }
 
@@ -52,11 +85,13 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
-# Constitutional constraints encoded in Cargo.toml:
-# - No network dependencies (no tokio, no reqwest, no hyper)
-# - No async runtime (no tokio, no async-std)
-# - No randomness crates (no rand)
-# - No cloud SDKs
-# - No LLM/AI client libraries
-# - No scope expansion capability
-# - No autonomous feature creation
+# Constitutional constraints:
+# - Scope is immutable during execution
+# - Execution must be deterministic where possible
+# - Governance must precede execution
+# - Patterns must be respected
+# - Context is required before execution
+# - Audit trail must be complete
+# - Network access only for LLM API calls
+# - No cloud SDKs for deployment/infra
+# - No autonomous feature creation outside approved scope

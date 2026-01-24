@@ -42,6 +42,17 @@ pub mod planner;
 pub mod executor;
 pub mod reviewer;
 pub mod signals;
+pub mod config;
+pub mod snapshot;
+pub mod orchestrator;
+pub mod modes;
+pub mod worktree;
+pub mod intake;
+pub mod verifier;
+pub mod errors;
+pub mod logging;
+pub mod contracts;
+pub mod agency;
 
 pub use types::*;
 pub use analyzer::RepoAnalyzer;
@@ -49,9 +60,23 @@ pub use planner::ImplementationPlanner;
 pub use executor::CodeExecutor;
 pub use reviewer::ArtifactReviewer;
 pub use signals::StatusEmitter;
+pub use config::*;
+pub use snapshot::*;
+pub use orchestrator::*;
+pub use modes::*;
+pub use worktree::*;
+pub use agency::*;
+
+// Re-export agency submodules
+pub use agency::task::{Task, TaskResult, TaskStatus, TaskType, TaskPayload, TaskOutput};
+pub use agency::registry::{AgentRegistry, RegisteredAgent, AgentCapability, AgentStatus};
+pub use agency::execute::{ParallelExecutor, ExecutionPlan, ExecutionStrategy, BatchProgress};
+
+// Re-export worktree submodules
+pub use worktree::{WorktreePool, WorktreeExecutor, TaskQueue, TaskLoop, WorktreeConfig};
 
 /// Dooz-Code version
-pub const VERSION: &str = "0.1.0";
+pub const VERSION: &str = "0.4.0-worktree";
 
 /// Primary execution entry point
 /// 
@@ -135,7 +160,7 @@ mod tests {
     #[test]
     fn version_exists() {
         assert!(!VERSION.is_empty());
-        assert_eq!(VERSION, "0.1.0");
+        assert!(VERSION.starts_with("0.3"));
     }
 
     #[test]

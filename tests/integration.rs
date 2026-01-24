@@ -287,3 +287,100 @@ fn integration_empty_scope() {
     let result = execute(&package, &context);
     assert!(result.is_ok());
 }
+
+/// Integration test with actual LLM provider
+/// Requires DOOZ_LLM_API_KEY and DOOZ_LLM_API_URL environment variables
+/// Run with: cargo test --features llm-integration integration_llm_actual
+#[cfg(feature = "llm-integration")]
+mod llm_integration_tests {
+    use super::*;
+    use dooz_code::executor::llm::{ComputerUseLlmProvider, LlmProviderFactory};
+    use std::sync::Arc;
+
+    #[test]
+    fn integration_llm_actual() {
+        // Skip if no API key
+        if std::env::var("DOOZ_LLM_API_KEY").is_err() {
+            eprintln!("Skipping: DOOZ_LLM_API_KEY not set");
+            return;
+        }
+
+        // Create provider from environment
+        let provider = LlmProviderFactory::try_create_computer_use()
+            .expect("Failed to create LLM provider");
+
+        // Create test request
+        use dooz_code::types::Language;
+        use dooz_code::executor::llm::{CodeRequest, GenerationIntent};
+
+        let request = CodeRequest::new(
+            "Add a utility function for string trimming",
+            "src/utils.rs",
+            Language::Rust,
+        ).with_intent(GenerationIntent::Implementation);
+
+        // Call LLM
+        let response = provider.generate_code(&request)
+            .expect("LLM call failed");
+
+        // Verify response
+        assert!(!response.code.is_empty(), "Generated code is empty");
+        assert!(response.code.contains("fn") || response.code.contains("pub"),
+            "Generated code should contain function definition");
+        assert!(response.confidence > 0.5, "Confidence should be > 0.5");
+
+        println!("Generated code:\n{}", response.code);
+        println!("Confidence: {}", response.confidence);
+    }
+
+    #[test]
+    fn integration_llm_with_context() {
+        // Skip if no API key
+        if std::env::var("DOOZ_LLM_API_KEY").is_err() {
+            eprintln!("Skipping: DOOZ_LLM_API_KEY not set");
+            return;
+        }
+
+        // Create temp repo with existing code
+        let dir = tempdir().unwrap();
+        let src_dir = dir.path().join("src");
+        fs::create_dir_all(&src_dir).unwrap();
+
+        // Create existing module with patterns to follow
+        fs::write(src_dir.join("lib.rs"), 
+            "//! Library module\n\npub fn process_data(input: &str) -> String {\n    input.trim().to_lowercase()\n}\n"
+        ).unwrap();
+
+        // Analyze context
+        let context = RepoContext::from_path(dir.path()).unwrap();
+        let analyzed = RepoAnalyzer::new().analyze(&context).unwrap();
+
+        // Create provider
+        let provider = LlmProviderFactory::try_create_computer_use()
+            .expect("Failed to create LLM provider");
+
+        // Create request with context
+        use dooz_code::executor::llm::{CodeRequest, ContextSummary, GenerationIntent};
+        use dooz_code::types::Language;
+
+        let context_summary = ContextSummary::from_context(&analyzed);
+        
+        let request = CodeRequest::new(
+            "Add error handling function",
+            "src/error.rs",
+            Language::Rust,
+        ).with_intent(GenerationIntent::Implementation)
+         .with_context(context_summary)
+         .with_constraint("Follow existing code style from lib.rs");
+
+        // Call LLM
+        let response = provider.generate_code(&request)
+            .expect("LLM call failed");
+
+        // Verify
+        assert!(!response.code.is_empty());
+        assert!(response.confidence > 0.5);
+
+        println!("Generated with context:\n{}", response.code);
+    }
+}

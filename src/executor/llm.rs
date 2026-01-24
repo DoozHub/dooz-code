@@ -1,8 +1,7 @@
 //! LLM Provider Abstraction
 //!
-//! Defines traits and stubs for LLM integration.
-//! NOTE: Constitutional Law prevents actual LLM client libraries.
-//! This module provides the interface that external orchestrators will implement.
+//! Defines traits and implementations for LLM integration.
+//! Supports stub providers for testing and actual LLM providers for production.
 
 use crate::types::{ContextError, Language};
 use crate::analyzer::AnalyzedContext;
@@ -621,6 +620,214 @@ fn to_kebab_case(s: &str) -> String {
     result
 }
 
+/// Computer Use LLM Provider Configuration
+#[derive(Debug, Clone)]
+pub struct ComputerUseConfig {
+    /// API endpoint URL
+    pub api_url: String,
+    /// API authentication key
+    pub api_key: String,
+    /// Model ID to use
+    pub model_id: String,
+    /// Maximum tokens to generate
+    pub max_tokens: u32,
+    /// Temperature for generation (0.0 - 1.0)
+    pub temperature: f32,
+}
+
+impl Default for ComputerUseConfig {
+    fn default() -> Self {
+        Self {
+            api_url: "http://127.0.0.1:8315".to_string(),
+            api_key: "sk-LSF18xOTg4QqB0QA7Md7xFQ8DZdvXbvV".to_string(),
+            model_id: "gemini-2.5-computer-use-preview-10-2025".to_string(),
+            max_tokens: 4096,
+            temperature: 0.2,
+        }
+    }
+}
+
+/// Computer Use LLM Provider - connects to local LLM API for code generation
+pub struct ComputerUseLlmProvider {
+    config: ComputerUseConfig,
+}
+
+impl ComputerUseLlmProvider {
+    /// Create new provider with default config
+    pub fn new() -> Self {
+        Self {
+            config: ComputerUseConfig::default(),
+        }
+    }
+
+    /// Create new provider with custom config
+    pub fn with_config(config: ComputerUseConfig) -> Self {
+        Self { config }
+    }
+
+    /// Create new provider from environment variables
+    pub fn from_env() -> Result<Self, ContextError> {
+        let api_url = std::env::var("DOOZ_LLM_API_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:8315".to_string());
+        let api_key = std::env::var("DOOZ_LLM_API_KEY")
+            .map_err(|_| ContextError::ConfigurationError {
+                message: "DOOZ_LLM_API_KEY environment variable not set".to_string(),
+            })?;
+        let model_id = std::env::var("DOOZ_LLM_MODEL")
+            .unwrap_or_else(|_| "gemini-2.5-computer-use-preview-10-2025".to_string());
+
+        Ok(Self::with_config(ComputerUseConfig {
+            api_url,
+            api_key,
+            model_id,
+            max_tokens: 4096,
+            temperature: 0.2,
+        }))
+    }
+
+    /// Make API call to LLM
+    fn call_llm(&self, prompt: &str) -> Result<String, ContextError> {
+        let request_body = serde_json::json!({
+            "model": self.config.model_id,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": self.config.max_tokens,
+            "temperature": self.config.temperature,
+        });
+
+        let response = ureq::post(&format!("{}/v1/chat/completions", self.config.api_url))
+            .set("Authorization", &format!("Bearer {}", self.config.api_key))
+            .set("Content-Type", "application/json")
+            .send_string(&request_body.to_string());
+
+        match response {
+            Ok(res) => {
+                let text = res.into_string().map_err(|e| ContextError::NetworkError {
+                    message: format!("Failed to read response: {}", e),
+                })?;
+                let parsed: serde_json::Value = serde_json::from_str(&text)
+                    .map_err(|e| ContextError::NetworkError {
+                        message: format!("Failed to parse response: {}", e),
+                    })?;
+
+                let content = parsed["choices"]
+                    .get(0)
+                    .and_then(|c| c["message"]["content"].as_str())
+                    .ok_or_else(|| ContextError::NetworkError {
+                        message: "Invalid response format from LLM API".to_string(),
+                    })?;
+
+                Ok(content.to_string())
+            }
+            Err(e) => Err(ContextError::NetworkError {
+                message: format!("LLM API request failed: {}", e),
+            }),
+        }
+    }
+
+    /// Extract code from LLM response (handles markdown code blocks)
+    fn extract_code(&self, response: &str) -> String {
+        let mut code = response.to_string();
+
+        // Try to extract from markdown code blocks
+        if let Some(start) = response.find("```") {
+            let after_start = &response[start + 3..];
+            // Skip language identifier if present
+            let content_start = if after_start.starts_with('\n') {
+                1
+            } else {
+                let newline = after_start.find('\n').unwrap_or(0);
+                newline + 1
+            };
+
+            if let Some(end) = after_start[content_start..].find("```") {
+                code = after_start[content_start..content_start + end].to_string();
+            }
+        }
+
+        code.trim().to_string()
+    }
+}
+
+impl Default for ComputerUseLlmProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LlmProvider for ComputerUseLlmProvider {
+    fn generate_code(&self, request: &CodeRequest) -> Result<CodeResponse, ContextError> {
+        let prompt = request.to_prompt();
+        let raw_response = self.call_llm(&prompt)?;
+        let code = self.extract_code(&raw_response);
+
+        Ok(CodeResponse::new(code)
+            .with_confidence(0.9)
+            .with_explanation("Generated using Computer Use LLM Provider"))
+    }
+
+    fn correct_code(&self, request: &CorrectionRequest) -> Result<CodeResponse, ContextError> {
+        let prompt = format!(
+            r#"Correct the following code based on these issues:
+
+Original Code:
+```
+{}
+```
+
+Issues to fix:
+{}
+
+Context:
+{}
+
+Please provide the corrected code only, wrapped in a markdown code block with the appropriate language.
+"#,
+            request.original_code,
+            request.issues.join("\n"),
+            request.context
+        );
+
+        let raw_response = self.call_llm(&prompt)?;
+        let code = self.extract_code(&raw_response);
+
+        Ok(CodeResponse::new(code)
+            .with_confidence(0.85)
+            .with_explanation("Corrected using Computer Use LLM Provider"))
+    }
+
+    fn name(&self) -> &str {
+        "computer-use"
+    }
+}
+
+/// Factory for creating LLM providers
+pub enum LlmProviderFactory {
+    /// Stub provider for testing
+    Stub,
+    /// Computer Use provider for production
+    ComputerUse,
+}
+
+impl LlmProviderFactory {
+    /// Create a provider based on enum variant
+    pub fn create(&self) -> Box<dyn LlmProvider> {
+        match self {
+            LlmProviderFactory::Stub => Box::new(StubLlmProvider::new()),
+            LlmProviderFactory::ComputerUse => Box::new(ComputerUseLlmProvider::new()),
+        }
+    }
+
+    /// Try to create ComputerUse provider from environment
+    pub fn try_create_computer_use() -> Result<Box<dyn LlmProvider>, ContextError> {
+        Ok(Box::new(ComputerUseLlmProvider::from_env()?))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -664,5 +871,99 @@ mod tests {
         assert_eq!(to_camel_case("my_function"), "myFunction");
         assert_eq!(to_pascal_case("my_function"), "MyFunction");
         assert_eq!(to_kebab_case("MyFunction"), "my-function");
+    }
+
+    #[test]
+    fn computer_use_config_default() {
+        let config = ComputerUseConfig::default();
+        assert_eq!(config.api_url, "http://127.0.0.1:8315");
+        assert_eq!(config.model_id, "gemini-2.5-computer-use-preview-10-2025");
+        assert_eq!(config.max_tokens, 4096);
+        assert_eq!(config.temperature, 0.2);
+    }
+
+    #[test]
+    fn computer_use_provider_creation() {
+        let provider = ComputerUseLlmProvider::new();
+        assert_eq!(provider.name(), "computer-use");
+    }
+
+    #[test]
+    fn computer_use_provider_with_custom_config() {
+        let config = ComputerUseConfig {
+            api_url: "http://localhost:8080".to_string(),
+            api_key: "test-key".to_string(),
+            model_id: "test-model".to_string(),
+            max_tokens: 2048,
+            temperature: 0.5,
+        };
+        let provider = ComputerUseLlmProvider::with_config(config);
+        assert_eq!(provider.name(), "computer-use");
+    }
+
+    #[test]
+    fn code_extraction_from_markdown() {
+        let provider = ComputerUseLlmProvider::new();
+        let response = r#"
+Here is the code you requested:
+
+```rust
+fn hello() {
+    println!("Hello, World!");
+}
+```
+
+Let me know if you need anything else!
+"#;
+
+        let code = provider.extract_code(response);
+        assert!(code.contains("fn hello()"));
+        assert!(code.contains("println!"));
+        assert!(!code.contains("```"));
+    }
+
+    #[test]
+    fn code_extraction_plain_text() {
+        let provider = ComputerUseLlmProvider::new();
+        let response = "fn hello() { return true; }";
+
+        let code = provider.extract_code(response);
+        assert_eq!(code, "fn hello() { return true; }");
+    }
+
+    #[test]
+    fn llm_provider_factory_stub() {
+        let provider = LlmProviderFactory::Stub.create();
+        assert_eq!(provider.name(), "stub");
+    }
+
+    #[test]
+    fn llm_provider_factory_computer_use() {
+        let provider = LlmProviderFactory::ComputerUse.create();
+        assert_eq!(provider.name(), "computer-use");
+    }
+
+    #[test]
+    fn code_response_builder() {
+        let response = CodeResponse::new("test code")
+            .with_confidence(0.95)
+            .with_explanation("Generated successfully")
+            .with_warning("Check for edge cases");
+
+        assert_eq!(response.code, "test code");
+        assert_eq!(response.confidence, 0.95);
+        assert_eq!(response.explanation, "Generated successfully");
+        assert_eq!(response.warnings.len(), 1);
+    }
+
+    #[test]
+    fn correction_request_builder() {
+        let request = CorrectionRequest::new("old code", Language::Rust)
+            .with_issue("Missing error handling")
+            .with_issue("No validation")
+            .with_context("This is a user authentication module");
+
+        assert!(request.issues.contains(&"Missing error handling".to_string()));
+        assert_eq!(request.issues.len(), 2);
     }
 }

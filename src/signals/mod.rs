@@ -5,9 +5,11 @@
 
 mod status;
 mod audit;
+mod progress;
 
 pub use status::*;
 pub use audit::*;
+pub use progress::*;
 
 /// Status emitter component
 pub struct StatusEmitter {
