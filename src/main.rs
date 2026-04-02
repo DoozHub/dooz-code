@@ -20,6 +20,7 @@ use dooz_code::{
     analyzer::RepoAnalyzer,
     planner::ImplementationPlanner,
     config::DoozCodeConfig,
+    mcp_context::BrainMcpClient,
 };
 
 #[cfg(feature = "binary")]
@@ -265,6 +266,25 @@ fn cmd_execute(package: &PathBuf, repo: &PathBuf, dry_run: bool) {
 
     if dry_run {
         println!("Mode: DRY RUN (no files will be modified)\n");
+        
+        // Query Brain for organizational context
+        let brain = BrainMcpClient::from_env();
+        if brain.config.enabled {
+            println!("Querying Brain MCP for organizational context...");
+            match brain.query_context(&work_package.title) {
+                Ok(ctx) => {
+                    let context_str = brain.format_prompt_context(&ctx);
+                    if !context_str.contains("No organizational context") {
+                        println!("✓ Brain context enriched ({} memories)", ctx.raw_memories.len());
+                    } else {
+                        println!("  No relevant memories found");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("  Warning: Brain query failed: {}", e);
+                }
+            }
+        }
         
         // Run planning only
         let analyzed = match RepoAnalyzer::new().analyze(&context) {

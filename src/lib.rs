@@ -53,6 +53,7 @@ pub mod errors;
 pub mod logging;
 pub mod contracts;
 pub mod agency;
+pub mod mcp_context;
 
 pub use types::*;
 pub use analyzer::RepoAnalyzer;
