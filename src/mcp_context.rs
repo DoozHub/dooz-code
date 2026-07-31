@@ -120,7 +120,7 @@ impl BrainMcpClient {
             match self.query_memories(&scope_id, &full_query, 5) {
                 Ok(memories) => {
                     for m in &memories {
-                        match topic.as_str() {
+                        match *topic {
                             "coding standards" => context.coding_standards.push(format!("{}: {}", m.title, m.content)),
                             "architecture decisions" => context.architecture_decisions.push(format!("{}: {}", m.title, m.content)),
                             "implementation patterns" => context.past_patterns.push(format!("{}: {}", m.title, m.content)),

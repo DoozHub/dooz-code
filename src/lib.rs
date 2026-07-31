@@ -76,8 +76,8 @@ pub use agency::execute::{ParallelExecutor, ExecutionPlan, ExecutionStrategy, Ba
 // Re-export worktree submodules
 pub use worktree::{WorktreePool, WorktreeExecutor, TaskQueue, TaskLoop, WorktreeConfig};
 
-/// Dooz-Code version
-pub const VERSION: &str = "0.4.0-worktree";
+/// Dooz-Code version (sourced from Cargo.toml)
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Primary execution entry point
 /// 

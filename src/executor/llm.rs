@@ -639,7 +639,7 @@ impl Default for ComputerUseConfig {
     fn default() -> Self {
         Self {
             api_url: "http://127.0.0.1:8315".to_string(),
-            api_key: "sk-LSF18xOTg4QqB0QA7Md7xFQ8DZdvXbvV".to_string(),
+            api_key: std::env::var("DOOZ_LLM_API_KEY").unwrap_or_default(),
             model_id: "gemini-2.5-computer-use-preview-10-2025".to_string(),
             max_tokens: 4096,
             temperature: 0.2,
