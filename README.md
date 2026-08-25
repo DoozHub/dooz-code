@@ -2,6 +2,14 @@
 
 > *An autonomous coder that belongs inside a company.*
 
+> ### ⚠️ Honest status (2026-08-07)
+> - Compiles on stable Rust (1.97) and passes 138/138 library tests.
+> - The legacy `execute()` path does **not** write generated files to disk (`apply()` has no caller in that path).
+> - The `worktree` executor (pool/queue/loop) is implemented and tested as a **library**, but no CLI subcommand invokes it yet.
+> - `ultrawork`, `delegate`, `async`, and `activate` CLI commands are print-only stubs (`src/main.rs`).
+> - The mode pipeline's Review/Verify agents currently return hardcoded placeholder verdicts (`src/modes/pipeline.rs`) — not real review signals.
+> Until the above change, treat dooz-code as a skeleton, not a working autonomous coder.
+
 ---
 
 ## ❌ What This Is Not
@@ -87,7 +95,7 @@ Core engine is fully open source (Apache 2.0).
 
 | Output | Description |
 |--------|-------------|
-| Code Files | Implementation written directly to repo |
+| Code Files | Implementation written directly to repo | <!-- CONTRADICTED by Honest status above; see _findings/15_RED_TEAM_OF_AUDIT.md R3 -->
 | Test Files | Unit and integration tests |
 | Config Files | Environment configurations |
 | Migrations | Database schema changes |
